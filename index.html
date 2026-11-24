@@ -161,6 +161,7 @@ footer {
   J.A.R.V.I.S. PERSONAL ASSISTANT · VERSION 1.0
 </footer>
 
+
 <script>
 const chat = document.getElementById("chat");
 
@@ -172,6 +173,54 @@ function addMessage(text, type) {
   chat.scrollTop = chat.scrollHeight;
 }
 
+function think(text) {
+  const q = text.toLowerCase();
+
+  if (q.includes("hallo") || q.includes("guten tag")) {
+    return "Guten Tag, Herr Kathmann. Wie kann ich Ihnen helfen?";
+  }
+
+  if (q.includes("wie heißt du")) {
+    return "Mein Name ist J.A.R.V.I.S. – Ihr persönlicher Assistent.";
+  }
+
+  if (q.includes("wie geht es dir")) {
+    return "Alle Systeme arbeiten im normalen Betriebszustand.";
+  }
+
+  if (q.includes("wer bist du")) {
+    return "Ich bin J.A.R.V.I.S., Ihr digitaler Assistent.";
+  }
+
+  if (q.includes("uhrzeit")) {
+    return "Die aktuelle Gerätezeit ist " +
+      new Date().toLocaleTimeString("de-DE") + ".";
+  }
+
+  if (q.includes("datum")) {
+    return "Heute ist der " +
+      new Date().toLocaleDateString("de-DE") + ".";
+  }
+
+  if (q.includes("gedächtnis")) {
+    showMemory();
+    return "Ich habe Ihr Gedächtnis geöffnet.";
+  }
+
+  if (q.includes("hilfe")) {
+    return "Ich kann Sie begrüßen, Datum und Uhrzeit nennen " +
+      "und Informationen lokal speichern.";
+  }
+
+  if (q.includes("danke")) {
+    return "Sehr gerne, Herr Kathmann.";
+  }
+
+  return "Ich habe Ihre Nachricht verstanden. " +
+    "Meine echte KI-Anbindung ist noch nicht eingerichtet. " +
+    "Ich werde diese Funktion später erweitern.";
+}
+
 function send() {
   const input = document.getElementById("message");
   const text = input.value.trim();
@@ -181,19 +230,7 @@ function send() {
   addMessage("Sie: " + text, "user");
   input.value = "";
 
-  let answer = "Ich habe Ihre Nachricht empfangen. " +
-    "Meine KI-Anbindung wird in einer späteren " +
-    "Version eingerichtet.";
-
-  if (text.toLowerCase().includes("hallo")) {
-    answer = "Guten Tag, Herr Kathmann. " +
-      "Schön, dass Sie da sind.";
-  }
-
-  if (text.toLowerCase().includes("hilfe")) {
-    answer = "Mein Grundsystem ist aktiv. " +
-      "Chat und lokales Gedächtnis sind verfügbar.";
-  }
+  const answer = think(text);
 
   addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
 }
@@ -203,7 +240,7 @@ function saveMemory() {
   const value = input.value.trim();
 
   if (!value) {
-    addMessage("J.A.R.V.I.S.: Bitte zuerst einen Text eingeben.",
+    addMessage("J.A.R.V.I.S.: Bitte Text eingeben.",
       "jarvis");
     return;
   }
@@ -213,9 +250,14 @@ function saveMemory() {
   );
 
   memories.push(value);
-  localStorage.setItem("jarvisMemory", JSON.stringify(memories));
+
+  localStorage.setItem(
+    "jarvisMemory",
+    JSON.stringify(memories)
+  );
 
   input.value = "";
+
   addMessage("J.A.R.V.I.S.: Information gespeichert.",
     "jarvis");
 }
@@ -226,24 +268,29 @@ function showMemory() {
   );
 
   addMessage(
-    "J.A.R.V.I.S.: Gedächtnis: " +
-    (memories.length ? memories.join(" | ") : "Noch leer."),
+    "J.A.R.V.I.S.: " +
+    (memories.length
+      ? memories.join(" | ")
+      : "Mein Gedächtnis ist noch leer."),
     "jarvis"
   );
 }
 
 function deleteMemory() {
   localStorage.removeItem("jarvisMemory");
+
   addMessage("J.A.R.V.I.S.: Gedächtnis gelöscht.",
     "jarvis");
 }
 
 document.getElementById("message").addEventListener(
-  "keydown", function(event) {
+  "keydown",
+  function(event) {
     if (event.key === "Enter") send();
   }
 );
 </script>
+
 
 </body>
 </html>
