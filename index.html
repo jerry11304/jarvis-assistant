@@ -324,6 +324,18 @@ document.getElementById("message").addEventListener(
     if (event.key === "Enter") send();
   }
 );
+function jarvisStatus() {
+  const status = {
+    system: "J.A.R.V.I.S.",
+    online: true,
+    time: new Date().toLocaleTimeString("de-DE"),
+    date: new Date().toLocaleDateString("de-DE")
+  };
+
+  const answer = "Systemstatus: Online. Alle lokalen Grundfunktionen sind bereit.";
+  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  speak(answer);
+}
 </script>
 
 
