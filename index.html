@@ -3,67 +3,59 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#071321">
-<title>J.A.R.V.I.S.</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#061421">
+<title>J.A.R.V.I.S. – Personal Assistant</title>
 
 <style>
 *{box-sizing:border-box}
 body{
- margin:0;background:#071321;color:#d9f6ff;
- font-family:Arial,sans-serif;min-height:100vh;
- display:flex;justify-content:center;
+ margin:0;background:#061421;color:#d9f5ff;
+ font-family:Arial,sans-serif;
 }
-.app{width:100%;max-width:850px;padding:20px}
-header{text-align:center;padding:20px}
-h1{letter-spacing:8px;color:#42d9ff}
-.status{color:#62e6a7;font-size:13px}
+.app{max-width:900px;margin:auto;padding:18px}
+header{text-align:center;padding:18px}
+h1{letter-spacing:9px;color:#35d5ff;text-shadow:0 0 15px #008cff}
+#status{font-size:13px;color:#68e9a8}
 .core{
- width:150px;height:150px;border-radius:50%;
- margin:20px auto;
- border:4px solid #28c9ff;
- box-shadow:0 0 25px #159bdc,inset 0 0 25px #159bdc;
- display:flex;align-items:center;justify-content:center;
+ width:155px;height:155px;margin:20px auto;
+ border:4px solid #27caff;border-radius:50%;
+ display:grid;place-items:center;
+ box-shadow:0 0 30px #009dff,inset 0 0 30px #009dff;
  animation:pulse 3s infinite;
 }
-.core span{font-size:35px;font-weight:bold}
-@keyframes pulse{
- 50%{box-shadow:0 0 45px #28c9ff,inset 0 0 35px #159bdc}
-}
+.core span{font-size:45px;font-weight:bold}
+@keyframes pulse{50%{box-shadow:0 0 55px #00bfff,inset 0 0 45px #00bfff}}
 .chat{
- height:350px;overflow-y:auto;
- border:1px solid #174d68;border-radius:12px;
- padding:15px;background:#091a2b;
+ height:390px;overflow-y:auto;padding:14px;
+ background:#091d2e;border:1px solid #155273;
+ border-radius:12px;
 }
-.message{margin:12px 0;padding:12px;border-radius:9px;line-height:1.5}
+.message{padding:12px;margin:10px 0;border-radius:9px;white-space:pre-wrap;line-height:1.5}
 .user{background:#123e59;text-align:right}
-.jarvis{background:#102b3e}
-.system{color:#83b9ce;font-size:13px;text-align:center}
+.jarvis{background:#102c40}
 .controls{display:flex;gap:8px;margin-top:12px}
 input{
  flex:1;min-width:0;padding:14px;
  background:#10283b;color:white;
- border:1px solid #28799b;border-radius:8px;
- font-size:16px
+ border:1px solid #28799b;border-radius:8px;font-size:16px
 }
 button{
- background:#087da8;color:white;border:0;
- border-radius:8px;padding:12px;cursor:pointer;
- font-size:14px
+ padding:12px;background:#087da8;color:white;
+ border:0;border-radius:8px;font-size:14px
 }
-button:hover{background:#119fce}
-.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+button:active{background:#19b7e7}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .tools button{background:#17384d}
-footer{text-align:center;color:#527d91;font-size:12px;margin:20px}
+footer{text-align:center;color:#527d91;margin:20px;font-size:12px}
 </style>
 </head>
 
 <body>
 <div class="app">
-
 <header>
 <h1>J.A.R.V.I.S.</h1>
-<div class="status" id="status">SYSTEM STARTET ...</div>
+<div id="status">SYSTEM STARTET</div>
 </header>
 
 <div class="core"><span>J</span></div>
@@ -75,32 +67,49 @@ Guten Abend, Herr Kathmann. J.A.R.V.I.S. ist bereit.
 </div>
 
 <div class="controls">
-<input id="input" placeholder="Nachricht an J.A.R.V.I.S. ..." autocomplete="off">
-<button onclick="send()">Senden</button>
-<button onclick="listen()">🎙️</button>
+<input id="input" placeholder="Nachricht an J.A.R.V.I.S. ...">
+<button id="sendButton">Senden</button>
+<button id="micButton">🎙️</button>
 </div>
 
 <div class="tools">
-<button onclick="showMemory()">Gedächtnis anzeigen</button>
-<button onclick="saveMemory()">Gedächtnis speichern</button>
-<button onclick="clearChat()">Chat löschen</button>
-<button onclick="stopSpeaking()">Sprache stoppen</button>
+<button id="memoryButton">Gedächtnis</button>
+<button id="saveButton">Erinnerung speichern</button>
+<button id="clearButton">Chat löschen</button>
+<button id="stopButton">Sprache stoppen</button>
 </div>
 
 <footer>J.A.R.V.I.S. PERSONAL ASSISTANT</footer>
 </div>
 
 <script>
-const API = "https://jarvis-assistant.jeremy-rohlfs.workers.dev";
+"use strict";
 
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
-const statusText = document.getElementById("status");
+const API="https://jarvis-assistant.jeremy-rohlfs.workers.dev";
 
-let history = JSON.parse(localStorage.getItem("jarvisChat") || "[]");
-let memory = JSON.parse(localStorage.getItem("jarvisMemory") || "[]");
+const chat=document.getElementById("chat");
+const input=document.getElementById("input");
+const status=document.getElementById("status");
 
-function addMessage(text, type="jarvis"){
+let history=readStorage("jarvisChat",[]);
+let memory=readStorage("jarvisMemory",[]);
+let busy=false;
+
+function readStorage(key,fallback){
+ try{
+  const value=JSON.parse(localStorage.getItem(key));
+  return value===null?fallback:value;
+ }catch{
+  return fallback;
+ }
+}
+
+function saveStorage(){
+ localStorage.setItem("jarvisChat",JSON.stringify(history));
+ localStorage.setItem("jarvisMemory",JSON.stringify(memory));
+}
+
+function addMessage(text,type="jarvis"){
  const div=document.createElement("div");
  div.className="message "+type;
  div.textContent=text;
@@ -108,11 +117,7 @@ function addMessage(text, type="jarvis"){
  chat.scrollTop=chat.scrollHeight;
 }
 
-function saveChat(){
- localStorage.setItem("jarvisChat",JSON.stringify(history));
-}
-
-function renderChat(){
+function renderHistory(){
  chat.innerHTML="";
  history.forEach(item=>addMessage(item.text,item.type));
 }
@@ -135,24 +140,23 @@ async function checkStatus(){
   const response=await fetch(API+"/api/status");
   if(!response.ok)throw new Error();
   const data=await response.json();
-  statusText.textContent=data.online
-   ?"SYSTEM ONLINE"
-   :"SYSTEM NICHT VERFÜGBAR";
- }catch(error){
-  statusText.textContent="VERBINDUNG FEHLGESCHLAGEN";
+  status.textContent=data.online?"SYSTEM ONLINE":"SYSTEM OFFLINE";
+ }catch{
+  status.textContent="VERBINDUNG FEHLGESCHLAGEN";
  }
 }
 
 async function send(){
  const text=input.value.trim();
- if(!text)return;
+ if(!text||busy)return;
 
  input.value="";
  history.push({text,type:"user"});
  addMessage(text,"user");
- saveChat();
+ saveStorage();
 
- statusText.textContent="J.A.R.V.I.S. DENKT ...";
+ busy=true;
+ status.textContent="J.A.R.V.I.S. DENKT ...";
 
  try{
   const response=await fetch(API+"/api/chat",{
@@ -170,42 +174,46 @@ async function send(){
   const data=await response.json();
 
   if(!response.ok){
-   throw new Error(data.message || "KI-Dienst ist noch nicht angeschlossen.");
+   throw new Error(data.message||"KI-Dienst nicht verfügbar.");
   }
 
-  const answer=data.reply || data.response || data.message;
+  const answer=data.reply||data.response;
 
-  if(!answer)throw new Error("Der KI-Dienst hat keine Antwort geliefert.");
+  if(typeof answer!=="string"||!answer.trim()){
+   throw new Error("Keine gültige KI-Antwort erhalten.");
+  }
 
   history.push({text:answer,type:"jarvis"});
   addMessage(answer);
-  saveChat();
+  saveStorage();
   speak(answer);
-  statusText.textContent="SYSTEM ONLINE";
+  status.textContent="SYSTEM ONLINE";
 
  }catch(error){
-  const answer="Herr Kathmann, die Verbindung zur KI ist noch nicht vollständig eingerichtet. Die API antwortet, aber der KI-Dienst liefert noch keine Antwort.";
-  history.push({text:answer,type:"jarvis"});
-  addMessage(answer);
-  saveChat();
-  statusText.textContent="KI-DIENST NICHT VERFÜGBAR";
+  const message="Herr Kathmann, mein KI-Dienst ist momentan nicht verfügbar. Die Verbindung zum Worker funktioniert, aber ein KI-Modell ist noch nicht angeschlossen.";
+  history.push({text:message,type:"jarvis"});
+  addMessage(message);
+  saveStorage();
+  status.textContent="KI-DIENST NICHT VERFÜGBAR";
+ }finally{
+  busy=false;
  }
 }
 
 function saveMemory(){
  const text=prompt("Was soll ich mir merken?");
- if(!text)return;
- memory.push(text);
- localStorage.setItem("jarvisMemory",JSON.stringify(memory));
- addMessage("Verstanden, Herr Kathmann. Ich habe diese Information lokal gespeichert.");
+ if(!text||!text.trim())return;
+ memory.push(text.trim());
+ saveStorage();
+ addMessage("Erinnerung lokal gespeichert, Herr Kathmann.");
 }
 
 function showMemory(){
  if(memory.length===0){
-  addMessage("Mein Gedächtnis ist momentan leer.");
+  addMessage("Mein Gedächtnis ist noch leer.");
   return;
  }
- addMessage("Gespeicherte Erinnerungen:\n"+memory.join("\n"));
+ addMessage("Gespeicherte Erinnerungen:\n"+memory.map((m,i)=>(i+1)+". "+m).join("\n"));
 }
 
 function clearChat(){
@@ -213,33 +221,41 @@ function clearChat(){
  history=[];
  localStorage.removeItem("jarvisChat");
  chat.innerHTML="";
- addMessage("Chatverlauf gelöscht. Ich bin wieder bereit.");
+ addMessage("Chatverlauf gelöscht. Ich bin bereit.");
 }
 
 function listen(){
- const Recognition=window.SpeechRecognition || window.webkitSpeechRecognition;
+ const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!Recognition){
-  addMessage("Spracherkennung wird von diesem Browser nicht unterstützt.");
+  addMessage("Dieser Browser unterstützt keine Spracherkennung.");
   return;
  }
+
  const recognition=new Recognition();
  recognition.lang="de-DE";
  recognition.interimResults=false;
- recognition.onstart=()=>statusText.textContent="ICH HÖRE ZU ...";
- recognition.onresult=(event)=>{
+ recognition.onstart=()=>status.textContent="ICH HÖRE ZU";
+ recognition.onresult=event=>{
   input.value=event.results[0][0].transcript;
   send();
  };
- recognition.onerror=()=>statusText.textContent="SPRACHERKENNUNG FEHLGESCHLAGEN";
+ recognition.onerror=()=>status.textContent="SPRACHERKENNUNG FEHLGESCHLAGEN";
  recognition.onend=()=>checkStatus();
  recognition.start();
 }
+
+document.getElementById("sendButton").addEventListener("click",send);
+document.getElementById("micButton").addEventListener("click",listen);
+document.getElementById("memoryButton").addEventListener("click",showMemory);
+document.getElementById("saveButton").addEventListener("click",saveMemory);
+document.getElementById("clearButton").addEventListener("click",clearChat);
+document.getElementById("stopButton").addEventListener("click",stopSpeaking);
 
 input.addEventListener("keydown",event=>{
  if(event.key==="Enter")send();
 });
 
-renderChat();
+renderHistory();
 checkStatus();
 </script>
 </body>
