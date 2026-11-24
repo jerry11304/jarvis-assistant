@@ -3,13 +3,14 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#050b15">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>J.A.R.V.I.S.</title>
 
 <style>
-* { box-sizing: border-box; }
-<button onclick="jarvisStatus()">Systemstatus</button>
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   background: #050b15;
@@ -24,6 +25,7 @@ header {
   border-bottom: 1px solid #123b58;
   letter-spacing: 4px;
   color: #45caff;
+  font-size: 24px;
 }
 
 .core {
@@ -78,10 +80,17 @@ main {
 .message {
   margin: 12px 0;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
-.jarvis { color: #55cfff; }
-.user { color: white; text-align: right; }
+.jarvis {
+  color: #55cfff;
+}
+
+.user {
+  color: white;
+  text-align: right;
+}
 
 .controls {
   display: flex;
@@ -106,15 +115,23 @@ button {
   border-radius: 8px;
   padding: 12px;
   font-weight: bold;
+  cursor: pointer;
+}
+
+button:active {
+  background: #045477;
 }
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 15px;
 }
 
-.actions button { flex: 1; }
+.actions button {
+  flex: 1 1 40%;
+}
 
 footer {
   text-align: center;
@@ -136,6 +153,7 @@ footer {
 <div class="status">SYSTEM ONLINE</div>
 
 <main>
+
   <div id="chat">
     <div class="message jarvis">
       J.A.R.V.I.S.: Guten Tag, Herr Kathmann.
@@ -151,19 +169,20 @@ footer {
   </div>
 
   <div class="actions">
-  <button onclick="saveMemory()">Merken</button>
-  <button onclick="showMemory()">Gedächtnis</button>
-  <button onclick="deleteMemory()">Löschen</button>
-  <button onclick="jarvisStatus()">Systemstatus</button>
-</div>
+    <button onclick="saveMemory()">Merken</button>
+    <button onclick="showMemory()">Gedächtnis</button>
+    <button onclick="deleteMemory()">Löschen</button>
+    <button onclick="jarvisStatus()">Systemstatus</button>
+  </div>
+
 </main>
 
 <footer>
-  J.A.R.V.I.S. PERSONAL ASSISTANT · VERSION 1.0
+  J.A.R.V.I.S. PERSONAL ASSISTANT · VERSION 1.1
 </footer>
 
-
 <script>
+
 const chat = document.getElementById("chat");
 
 function addMessage(text, type) {
@@ -174,6 +193,19 @@ function addMessage(text, type) {
   chat.scrollTop = chat.scrollHeight;
 }
 
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+
+  window.speechSynthesis.cancel();
+
+  const speech = new SpeechSynthesisUtterance(text);
+  speech.lang = "de-DE";
+  speech.rate = 0.95;
+  speech.pitch = 0.85;
+
+  window.speechSynthesis.speak(speech);
+}
+
 function think(text) {
   const q = text.toLowerCase();
 
@@ -181,49 +213,36 @@ function think(text) {
     return "Guten Tag, Herr Kathmann. Wie kann ich Ihnen helfen?";
   }
 
-  if (q.includes("wie heißt du")) {
-    return "Mein Name ist J.A.R.V.I.S. – Ihr persönlicher Assistent.";
+  if (q.includes("wer bist du") || q.includes("wie heißt du")) {
+    return "Ich bin J.A.R.V.I.S., Ihr persönlicher digitaler Assistent.";
   }
 
   if (q.includes("wie geht es dir")) {
-    return "Alle Systeme arbeiten im normalen Betriebszustand.";
+    return "Alle lokalen Systeme arbeiten normal.";
   }
 
-  if (q.includes("wer bist du")) {
-    return "Ich bin J.A.R.V.I.S., Ihr digitaler Assistent.";
+  if (q.includes("uhrzeit") || q.includes("wie spät")) {
+    return "Es ist " +
+      new Date().toLocaleTimeString("de-DE") + " Uhr.";
   }
 
-  if (q.includes("uhrzeit")) {
-    return "Die aktuelle Gerätezeit ist " +
-      new Date().toLocaleTimeString("de-DE") + ".";
-  }
-
-  if (q.includes("datum")) {
+  if (q.includes("datum") || q.includes("welcher tag")) {
     return "Heute ist der " +
       new Date().toLocaleDateString("de-DE") + ".";
   }
 
-  if (q.includes("gedächtnis")) {
-    showMemory();
-    return "Ich habe Ihr Gedächtnis geöffnet.";
-  }
-
   if (q.includes("hilfe")) {
-    return "Ich kann Sie begrüßen, Datum und Uhrzeit nennen " +
-      "und Informationen lokal speichern.";
+    return "Ich kann Sie begrüßen, Datum und Uhrzeit nennen und Informationen speichern.";
   }
 
   if (q.includes("danke")) {
     return "Sehr gerne, Herr Kathmann.";
   }
 
-  return "Ich habe Ihre Nachricht verstanden. " +
-    "Meine echte KI-Anbindung ist noch nicht eingerichtet. " +
-    "Ich werde diese Funktion später erweitern.";
+  return "Ich habe Ihre Nachricht empfangen. Meine lokalen Funktionen sind aktiv. Eine echte KI-Anbindung ist noch nicht eingerichtet.";
 }
 
-
-async function send() {
+function send() {
   const input = document.getElementById("message");
   const text = input.value.trim();
 
@@ -232,52 +251,18 @@ async function send() {
   addMessage("Sie: " + text, "user");
   input.value = "";
 
-  addMessage("J.A.R.V.I.S.: Ich denke nach ...", "jarvis");
+  const answer = think(text);
 
-  try {
-    const response = await fetch(
-      "https://jarvis-assistant.jeremy-rohlfs.workers.dev",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: text
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Verbindungsfehler");
-    }
-
-    addMessage(
-      "J.A.R.V.I.S.: " + data.answer,
-      "jarvis"
-    );
-
-    speak(data.answer);
-
-  } catch (error) {
-    addMessage(
-      "J.A.R.V.I.S.: Verbindung fehlgeschlagen: " +
-      error.message,
-      "jarvis"
-    );
-  }
+  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  speak(answer);
 }
-
 
 function saveMemory() {
   const input = document.getElementById("message");
   const value = input.value.trim();
 
   if (!value) {
-    addMessage("J.A.R.V.I.S.: Bitte Text eingeben.",
-      "jarvis");
+    addMessage("J.A.R.V.I.S.: Bitte zuerst eine Information eingeben.", "jarvis");
     return;
   }
 
@@ -294,8 +279,7 @@ function saveMemory() {
 
   input.value = "";
 
-  addMessage("J.A.R.V.I.S.: Information gespeichert.",
-    "jarvis");
+  addMessage("J.A.R.V.I.S.: Information gespeichert.", "jarvis");
 }
 
 function showMemory() {
@@ -315,31 +299,30 @@ function showMemory() {
 function deleteMemory() {
   localStorage.removeItem("jarvisMemory");
 
-  addMessage("J.A.R.V.I.S.: Gedächtnis gelöscht.",
-    "jarvis");
+  addMessage("J.A.R.V.I.S.: Gedächtnis gelöscht.", "jarvis");
+}
+
+function jarvisStatus() {
+  const answer =
+    "Systemstatus: Online. Alle lokalen Grundfunktionen sind bereit.";
+
+  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  speak(answer);
 }
 
 document.getElementById("message").addEventListener(
   "keydown",
   function(event) {
-    if (event.key === "Enter") send();
+    if (event.key === "Enter") {
+      send();
+    }
   }
 );
-function jarvisStatus() {
-  const status = {
-    system: "J.A.R.V.I.S.",
-    online: true,
-    time: new Date().toLocaleTimeString("de-DE"),
-    date: new Date().toLocaleDateString("de-DE")
-  };
 
-  const answer = "Systemstatus: Online. Alle lokalen Grundfunktionen sind bereit.";
-  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
-  speak(answer);
-}
 </script>
-
 
 </body>
 </html>
+
+    
 
