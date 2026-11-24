@@ -81,6 +81,7 @@ main {
   margin: 12px 0;
   line-height: 1.5;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .jarvis {
@@ -156,67 +157,150 @@ footer {
 
 <main>
 
-  <div id="chat">
-    <div class="message jarvis">
-      J.A.R.V.I.S.: Guten Tag, Herr Kathmann.
-      Alle lokalen Systeme sind bereit.
-      Wie kann ich Ihnen helfen?
-    </div>
-  </div>
+  <div id="chat"></div>
 
   <div class="controls">
-    <input id="message"
-      placeholder="Nachricht an J.A.R.V.I.S.">
-    <button onclick="send()">Senden</button>
+    <input
+      id="message"
+      placeholder="Nachricht an J.A.R.V.I.S."
+      autocomplete="off"
+    >
+    <button id="sendButton" onclick="send()">Senden</button>
     <button onclick="listen()">🎙️</button>
   </div>
 
   <div class="actions">
     <button onclick="saveMemory()">Merken</button>
     <button onclick="showMemory()">Gedächtnis</button>
-    <button onclick="deleteMemory()">Löschen</button>
+    <button onclick="deleteMemory()">Gedächtnis löschen</button>
     <button onclick="jarvisStatus()">Systemstatus</button>
     <button onclick="stopSpeaking()">Stimme stoppen</button>
+    <button onclick="clearChat()">Chat löschen</button>
   </div>
 
 </main>
 
 <footer>
-  J.A.R.V.I.S. PERSONAL ASSISTANT · VERSION 2.0
+  J.A.R.V.I.S. PERSONAL ASSISTANT · VERSION 3.1
 </footer>
 
 <script>
 
-const chat = document.getElementById("chat");
+// =====================================
+// GRUNDEINSTELLUNGEN
+// =====================================
 
+const chat = document.getElementById("chat");
+const input = document.getElementById("message");
+const statusElement = document.getElementById("systemStatus");
+
+const CHAT_KEY = "jarvisChat";
+const MEMORY_KEY = "jarvisMemory";
+
+let conversation = [];
 let recognition = null;
 let listening = false;
 
-// NACHRICHTEN ANZEIGEN
 
-function addMessage(text, type) {
+// =====================================
+// CHATVERLAUF LADEN UND SPEICHERN
+// =====================================
+
+function saveChat() {
+  try {
+    localStorage.setItem(
+      CHAT_KEY,
+      JSON.stringify(conversation)
+    );
+  } catch (error) {
+    console.error("Chat konnte nicht gespeichert werden:", error);
+  }
+}
+
+function loadChat() {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(CHAT_KEY) || "[]"
+    );
+
+    conversation = Array.isArray(stored)
+      ? stored.filter(item =>
+          item &&
+          typeof item.text === "string" &&
+          ["user", "jarvis"].includes(item.type)
+        )
+      : [];
+
+  } catch (error) {
+    conversation = [];
+  }
+
+  if (conversation.length === 0) {
+    conversation.push({
+      type: "jarvis",
+      text: "Guten Tag, Herr Kathmann. Alle lokalen Systeme sind bereit. Wie kann ich Ihnen helfen?"
+    });
+
+    saveChat();
+  }
+
+  renderChat();
+}
+
+function renderChat() {
+  chat.replaceChildren();
+
+  conversation.forEach(item => {
+    addMessage(item.text, item.type, false);
+  });
+
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addMessage(text, type, persist = true) {
   const div = document.createElement("div");
+
   div.className = "message " + type;
   div.textContent = text;
 
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
+
+  if (persist) {
+    conversation.push({
+      text: text,
+      type: type
+    });
+
+    saveChat();
+  }
 }
 
+function clearChat() {
+  if (!confirm("Möchten Sie den gesamten Chatverlauf löschen?")) {
+    return;
+  }
+
+  conversation = [];
+  localStorage.removeItem(CHAT_KEY);
+
+  loadChat();
+}
+
+
+// =====================================
 // SPRACHAUSGABE
+// =====================================
 
 function speak(text) {
   if (!("speechSynthesis" in window)) {
-    addMessage(
-      "J.A.R.V.I.S.: Sprachausgabe nicht verfügbar.",
-      "jarvis"
-    );
     return;
   }
 
   window.speechSynthesis.cancel();
 
   const speech = new SpeechSynthesisUtterance(text);
+
   speech.lang = "de-DE";
   speech.rate = 0.95;
   speech.pitch = 0.85;
@@ -230,71 +314,248 @@ function stopSpeaking() {
   }
 }
 
-// LOKALE ANTWORTEN
+
+// =====================================
+// GEDÄCHTNIS
+// =====================================
+
+function getMemories() {
+  try {
+    const memories = JSON.parse(
+      localStorage.getItem(MEMORY_KEY) || "[]"
+    );
+
+    return Array.isArray(memories)
+      ? memories.filter(item => typeof item === "string")
+      : [];
+
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveMemory() {
+  const value = input.value.trim();
+
+  if (!value) {
+    addMessage(
+      "J.A.R.V.I.S.: Bitte geben Sie zuerst eine Information ein.",
+      "jarvis"
+    );
+    return;
+  }
+
+  const memories = getMemories();
+
+  if (memories.some(item => item.toLowerCase() === value.toLowerCase())) {
+    addMessage(
+      "J.A.R.V.I.S.: Diese Information ist bereits gespeichert.",
+      "jarvis"
+    );
+    return;
+  }
+
+  memories.push(value);
+
+  localStorage.setItem(
+    MEMORY_KEY,
+    JSON.stringify(memories)
+  );
+
+  input.value = "";
+
+  const answer =
+    "Information wurde in meinem Gedächtnis gespeichert.";
+
+  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  speak(answer);
+}
+
+function showMemory() {
+  const memories = getMemories();
+
+  let answer;
+
+  if (memories.length > 0) {
+    answer = "Folgende Informationen sind gespeichert:\n\n";
+
+    memories.forEach((memory, index) => {
+      answer += (index + 1) + ". " + memory + "\n";
+    });
+
+  } else {
+    answer = "Mein Gedächtnis ist noch leer.";
+  }
+
+  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  speak(memories.length
+    ? "Ich habe " + memories.length + " Informationen gespeichert."
+    : answer
+  );
+}
+
+function deleteMemory() {
+  if (!confirm("Möchten Sie alle gespeicherten Erinnerungen löschen?")) {
+    return;
+  }
+
+  localStorage.removeItem(MEMORY_KEY);
+
+  const answer =
+    "Mein lokales Gedächtnis wurde gelöscht.";
+
+  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  speak(answer);
+}
+
+
+// =====================================
+// GEDÄCHTNIS DURCHSUCHEN
+// =====================================
+
+function searchMemory(question) {
+  const memories = getMemories();
+  const words = question
+    .toLowerCase()
+    .replace(/[?!.,]/g, "")
+    .split(/\s+/)
+    .filter(word => word.length > 3);
+
+  const matches = memories.filter(memory => {
+    const lowerMemory = memory.toLowerCase();
+
+    return words.some(word =>
+      lowerMemory.includes(word)
+    );
+  });
+
+  return matches;
+}
+
+
+// =====================================
+// LOKALE ANTWORTLOGIK
+// =====================================
 
 function think(text) {
-  const q = text.toLowerCase();
+  const q = text.toLowerCase().trim();
 
-  if (q.includes("hallo") || q.includes("guten tag")) {
+  if (
+    q.includes("hallo") ||
+    q.includes("guten tag") ||
+    q === "hi"
+  ) {
     return "Guten Tag, Herr Kathmann. Wie kann ich Ihnen helfen?";
   }
 
-  if (q.includes("wer bist du") || q.includes("wie heißt du")) {
+  if (
+    q.includes("wer bist du") ||
+    q.includes("wie heißt du")
+  ) {
     return "Ich bin J.A.R.V.I.S., Ihr persönlicher digitaler Assistent.";
   }
 
   if (q.includes("wie geht es dir")) {
-    return "Alle Systeme arbeiten im normalen Betriebszustand.";
+    return "Alle lokalen Systeme arbeiten im normalen Betriebszustand.";
   }
 
-  if (q.includes("uhrzeit") || q.includes("wie spät")) {
+  if (
+    q.includes("uhrzeit") ||
+    q.includes("wie spät")
+  ) {
     return "Es ist " +
       new Date().toLocaleTimeString("de-DE") + " Uhr.";
   }
 
-  if (q.includes("datum") || q.includes("welcher tag")) {
+  if (
+    q.includes("datum") ||
+    q.includes("welcher tag")
+  ) {
     return "Heute ist der " +
       new Date().toLocaleDateString("de-DE") + ".";
   }
 
-  if (q.includes("hilfe")) {
-    return "Ich kann Sie begrüßen, Datum und Uhrzeit nennen und Informationen lokal speichern.";
+  if (
+    q.includes("gedächtnis") ||
+    q.includes("was hast du gespeichert")
+  ) {
+    const memories = getMemories();
+
+    if (memories.length === 0) {
+      return "Mein Gedächtnis ist noch leer.";
+    }
+
+    return "Ich habe " + memories.length +
+      " Informationen gespeichert. Drücken Sie Gedächtnis, um sie anzuzeigen.";
   }
 
-  if (q.includes("gedächtnis")) {
-    showMemory();
-    return "Ich habe Ihr Gedächtnis geöffnet.";
+  if (
+    q.includes("was weißt du über mich") ||
+    q.includes("was erinnerst du")
+  ) {
+    const memories = getMemories();
+
+    if (memories.length === 0) {
+      return "Bisher habe ich noch keine persönlichen Informationen gespeichert.";
+    }
+
+    return "Ich habe folgende Informationen über Sie gespeichert: " +
+      memories.join(". ");
   }
 
-  if (q.includes("systemstatus")) {
+  if (
+    q.includes("systemstatus") ||
+    q.includes("system status")
+  ) {
     return "Alle lokalen Grundfunktionen sind online.";
+  }
+
+  if (q.includes("hilfe")) {
+    return "Ich kann Sie begrüßen, Datum und Uhrzeit nennen, lokale Erinnerungen speichern und den Chatverlauf wiederherstellen.";
   }
 
   if (q.includes("danke")) {
     return "Sehr gerne, Herr Kathmann.";
   }
 
-  return "Ich habe Ihre Nachricht empfangen. Meine lokalen Funktionen sind aktiv. Eine echte KI-Anbindung ist noch nicht eingerichtet.";
+  const matches = searchMemory(q);
+
+  if (matches.length > 0) {
+    return "Ich habe dazu etwas in meinem Gedächtnis gefunden: " +
+      matches.join(". ");
+  }
+
+  return "Ich habe Ihre Nachricht empfangen. Meine lokalen Funktionen sind aktiv. Eine generative KI ist noch nicht angeschlossen.";
 }
 
+
+// =====================================
 // NACHRICHT SENDEN
+// =====================================
 
 function send() {
-  const input = document.getElementById("message");
   const text = input.value.trim();
 
   if (!text) return;
 
   addMessage("Sie: " + text, "user");
+
   input.value = "";
 
   const answer = think(text);
 
-  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  addMessage(
+    "J.A.R.V.I.S.: " + answer,
+    "jarvis"
+  );
+
   speak(answer);
 }
 
+
+// =====================================
 // SPRACHERKENNUNG
+// =====================================
 
 function listen() {
   const Recognition =
@@ -322,15 +583,13 @@ function listen() {
 
   recognition.onstart = function() {
     listening = true;
-    document.getElementById("systemStatus").textContent =
-      "SPRACHERKENNUNG AKTIV";
+    statusElement.textContent = "SPRACHERKENNUNG AKTIV";
   };
 
   recognition.onresult = function(event) {
-    const result =
-      event.results[0][0].transcript;
+    const result = event.results[0][0].transcript;
 
-    document.getElementById("message").value = result;
+    input.value = result;
 
     send();
   };
@@ -344,13 +603,14 @@ function listen() {
 
   recognition.onend = function() {
     listening = false;
-    document.getElementById("systemStatus").textContent =
-      "SYSTEM ONLINE";
+    statusElement.textContent = "SYSTEM ONLINE";
   };
 
   try {
     recognition.start();
   } catch (error) {
+    listening = false;
+
     addMessage(
       "J.A.R.V.I.S.: Spracherkennung konnte nicht gestartet werden.",
       "jarvis"
@@ -358,93 +618,48 @@ function listen() {
   }
 }
 
-// GEDÄCHTNIS SPEICHERN
 
-function getMemories() {
-  try {
-    return JSON.parse(
-      localStorage.getItem("jarvisMemory") || "[]"
-    );
-  } catch (error) {
-    return [];
-  }
-}
-
-function saveMemory() {
-  const input = document.getElementById("message");
-  const value = input.value.trim();
-
-  if (!value) {
-    addMessage(
-      "J.A.R.V.I.S.: Bitte zuerst eine Information eingeben.",
-      "jarvis"
-    );
-    return;
-  }
-
-  const memories = getMemories();
-  memories.push(value);
-
-  localStorage.setItem(
-    "jarvisMemory",
-    JSON.stringify(memories)
-  );
-
-  input.value = "";
-
-  const answer = "Information wurde in meinem lokalen Gedächtnis gespeichert.";
-
-  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
-  speak(answer);
-}
-
-// GEDÄCHTNIS ANZEIGEN
-
-function showMemory() {
-  const memories = getMemories();
-
-  const answer = memories.length
-    ? memories.join(" | ")
-    : "Mein Gedächtnis ist noch leer.";
-
-  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
-  speak(answer);
-}
-
-// GEDÄCHTNIS LÖSCHEN
-
-function deleteMemory() {
-  localStorage.removeItem("jarvisMemory");
-
-  const answer = "Mein lokales Gedächtnis wurde gelöscht.";
-
-  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
-  speak(answer);
-}
-
+// =====================================
 // SYSTEMSTATUS
+// =====================================
 
 function jarvisStatus() {
-  const answer =
-    "Systemstatus: Online. Chat, Gedächtnis und lokale Sprachfunktionen sind bereit.";
+  const memories = getMemories();
 
-  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  const answer =
+    "Systemstatus: Online. " +
+    "Chatverlauf gespeichert. " +
+    memories.length + " Erinnerungen vorhanden. " +
+    "Sprachfunktionen bereit. " +
+    "Generative KI noch nicht verbunden.";
+
+  addMessage(
+    "J.A.R.V.I.S.: " + answer,
+    "jarvis"
+  );
+
   speak(answer);
 }
 
-// ENTER-TASTE
 
-document.getElementById("message").addEventListener(
-  "keydown",
-  function(event) {
-    if (event.key === "Enter") {
-      send();
-    }
+// =====================================
+// ENTER-TASTE
+// =====================================
+
+input.addEventListener("keydown", function(event) {
+  if (event.key === "Enter") {
+    send();
   }
-);
+});
+
+
+// =====================================
+// SYSTEM STARTEN
+// =====================================
+
+loadChat();
 
 </script>
 
 </body>
 </html>
-
