@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>J.A.R.V.I.S.</title>
+<title>J.A.R.V.I.S. Assistant</title>
 
 <style>
 * {
@@ -31,7 +31,7 @@ header {
 .core {
   width: 150px;
   height: 150px;
-  margin: 45px auto 20px;
+  margin: 40px auto 20px;
   border: 3px solid #31caff;
   border-radius: 50%;
   box-shadow: 0 0 20px #168bff,
@@ -59,7 +59,7 @@ header {
   text-align: center;
   color: #48caff;
   letter-spacing: 2px;
-  margin-bottom: 35px;
+  margin-bottom: 30px;
 }
 
 main {
@@ -69,7 +69,7 @@ main {
 }
 
 #chat {
-  height: 280px;
+  height: 300px;
   overflow-y: auto;
   background: #091625;
   border: 1px solid #145078;
@@ -150,14 +150,16 @@ footer {
   <span>J</span>
 </div>
 
-<div class="status">SYSTEM ONLINE</div>
+<div class="status" id="systemStatus">
+  SYSTEM ONLINE
+</div>
 
 <main>
 
   <div id="chat">
     <div class="message jarvis">
       J.A.R.V.I.S.: Guten Tag, Herr Kathmann.
-      Mein System ist gestartet.
+      Alle lokalen Systeme sind bereit.
       Wie kann ich Ihnen helfen?
     </div>
   </div>
@@ -166,6 +168,7 @@ footer {
     <input id="message"
       placeholder="Nachricht an J.A.R.V.I.S.">
     <button onclick="send()">Senden</button>
+    <button onclick="listen()">🎙️</button>
   </div>
 
   <div class="actions">
@@ -173,28 +176,43 @@ footer {
     <button onclick="showMemory()">Gedächtnis</button>
     <button onclick="deleteMemory()">Löschen</button>
     <button onclick="jarvisStatus()">Systemstatus</button>
+    <button onclick="stopSpeaking()">Stimme stoppen</button>
   </div>
 
 </main>
 
 <footer>
-  J.A.R.V.I.S. PERSONAL ASSISTANT · VERSION 1.1
+  J.A.R.V.I.S. PERSONAL ASSISTANT · VERSION 2.0
 </footer>
 
 <script>
 
 const chat = document.getElementById("chat");
 
+let recognition = null;
+let listening = false;
+
+// NACHRICHTEN ANZEIGEN
+
 function addMessage(text, type) {
   const div = document.createElement("div");
   div.className = "message " + type;
   div.textContent = text;
+
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
 }
 
+// SPRACHAUSGABE
+
 function speak(text) {
-  if (!("speechSynthesis" in window)) return;
+  if (!("speechSynthesis" in window)) {
+    addMessage(
+      "J.A.R.V.I.S.: Sprachausgabe nicht verfügbar.",
+      "jarvis"
+    );
+    return;
+  }
 
   window.speechSynthesis.cancel();
 
@@ -205,6 +223,14 @@ function speak(text) {
 
   window.speechSynthesis.speak(speech);
 }
+
+function stopSpeaking() {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+// LOKALE ANTWORTEN
 
 function think(text) {
   const q = text.toLowerCase();
@@ -218,7 +244,7 @@ function think(text) {
   }
 
   if (q.includes("wie geht es dir")) {
-    return "Alle lokalen Systeme arbeiten normal.";
+    return "Alle Systeme arbeiten im normalen Betriebszustand.";
   }
 
   if (q.includes("uhrzeit") || q.includes("wie spät")) {
@@ -232,7 +258,16 @@ function think(text) {
   }
 
   if (q.includes("hilfe")) {
-    return "Ich kann Sie begrüßen, Datum und Uhrzeit nennen und Informationen speichern.";
+    return "Ich kann Sie begrüßen, Datum und Uhrzeit nennen und Informationen lokal speichern.";
+  }
+
+  if (q.includes("gedächtnis")) {
+    showMemory();
+    return "Ich habe Ihr Gedächtnis geöffnet.";
+  }
+
+  if (q.includes("systemstatus")) {
+    return "Alle lokalen Grundfunktionen sind online.";
   }
 
   if (q.includes("danke")) {
@@ -241,6 +276,8 @@ function think(text) {
 
   return "Ich habe Ihre Nachricht empfangen. Meine lokalen Funktionen sind aktiv. Eine echte KI-Anbindung ist noch nicht eingerichtet.";
 }
+
+// NACHRICHT SENDEN
 
 function send() {
   const input = document.getElementById("message");
@@ -257,19 +294,95 @@ function send() {
   speak(answer);
 }
 
+// SPRACHERKENNUNG
+
+function listen() {
+  const Recognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  if (!Recognition) {
+    addMessage(
+      "J.A.R.V.I.S.: Die Spracherkennung wird von diesem Browser nicht unterstützt.",
+      "jarvis"
+    );
+    return;
+  }
+
+  if (listening && recognition) {
+    recognition.stop();
+    return;
+  }
+
+  recognition = new Recognition();
+
+  recognition.lang = "de-DE";
+  recognition.interimResults = false;
+  recognition.continuous = false;
+
+  recognition.onstart = function() {
+    listening = true;
+    document.getElementById("systemStatus").textContent =
+      "SPRACHERKENNUNG AKTIV";
+  };
+
+  recognition.onresult = function(event) {
+    const result =
+      event.results[0][0].transcript;
+
+    document.getElementById("message").value = result;
+
+    send();
+  };
+
+  recognition.onerror = function() {
+    addMessage(
+      "J.A.R.V.I.S.: Mikrofon konnte nicht verwendet werden.",
+      "jarvis"
+    );
+  };
+
+  recognition.onend = function() {
+    listening = false;
+    document.getElementById("systemStatus").textContent =
+      "SYSTEM ONLINE";
+  };
+
+  try {
+    recognition.start();
+  } catch (error) {
+    addMessage(
+      "J.A.R.V.I.S.: Spracherkennung konnte nicht gestartet werden.",
+      "jarvis"
+    );
+  }
+}
+
+// GEDÄCHTNIS SPEICHERN
+
+function getMemories() {
+  try {
+    return JSON.parse(
+      localStorage.getItem("jarvisMemory") || "[]"
+    );
+  } catch (error) {
+    return [];
+  }
+}
+
 function saveMemory() {
   const input = document.getElementById("message");
   const value = input.value.trim();
 
   if (!value) {
-    addMessage("J.A.R.V.I.S.: Bitte zuerst eine Information eingeben.", "jarvis");
+    addMessage(
+      "J.A.R.V.I.S.: Bitte zuerst eine Information eingeben.",
+      "jarvis"
+    );
     return;
   }
 
-  const memories = JSON.parse(
-    localStorage.getItem("jarvisMemory") || "[]"
-  );
-
+  const memories = getMemories();
   memories.push(value);
 
   localStorage.setItem(
@@ -279,36 +392,47 @@ function saveMemory() {
 
   input.value = "";
 
-  addMessage("J.A.R.V.I.S.: Information gespeichert.", "jarvis");
-}
-
-function showMemory() {
-  const memories = JSON.parse(
-    localStorage.getItem("jarvisMemory") || "[]"
-  );
-
-  addMessage(
-    "J.A.R.V.I.S.: " +
-    (memories.length
-      ? memories.join(" | ")
-      : "Mein Gedächtnis ist noch leer."),
-    "jarvis"
-  );
-}
-
-function deleteMemory() {
-  localStorage.removeItem("jarvisMemory");
-
-  addMessage("J.A.R.V.I.S.: Gedächtnis gelöscht.", "jarvis");
-}
-
-function jarvisStatus() {
-  const answer =
-    "Systemstatus: Online. Alle lokalen Grundfunktionen sind bereit.";
+  const answer = "Information wurde in meinem lokalen Gedächtnis gespeichert.";
 
   addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
   speak(answer);
 }
+
+// GEDÄCHTNIS ANZEIGEN
+
+function showMemory() {
+  const memories = getMemories();
+
+  const answer = memories.length
+    ? memories.join(" | ")
+    : "Mein Gedächtnis ist noch leer.";
+
+  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  speak(answer);
+}
+
+// GEDÄCHTNIS LÖSCHEN
+
+function deleteMemory() {
+  localStorage.removeItem("jarvisMemory");
+
+  const answer = "Mein lokales Gedächtnis wurde gelöscht.";
+
+  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  speak(answer);
+}
+
+// SYSTEMSTATUS
+
+function jarvisStatus() {
+  const answer =
+    "Systemstatus: Online. Chat, Gedächtnis und lokale Sprachfunktionen sind bereit.";
+
+  addMessage("J.A.R.V.I.S.: " + answer, "jarvis");
+  speak(answer);
+}
+
+// ENTER-TASTE
 
 document.getElementById("message").addEventListener(
   "keydown",
@@ -323,6 +447,4 @@ document.getElementById("message").addEventListener(
 
 </body>
 </html>
-
-    
 
